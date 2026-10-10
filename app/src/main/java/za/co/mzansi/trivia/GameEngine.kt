@@ -9,7 +9,8 @@ data class GameState(
     val correctCounts: List<Int> = listOf(0, 0), val answers: Map<Int, Int> = emptyMap(),
     val players: List<Boolean> = listOf(false, false),
     val names: List<String> = listOf("Player 1", "Player 2"), val revealed: Boolean = false,
-    val started: Boolean = false, val finished: Boolean = false
+    val started: Boolean = false, val finished: Boolean = false,
+    val round: Int = 0
 )
 class GameEngine {
     val questions = listOf(
@@ -29,7 +30,7 @@ class GameEngine {
         Question("What is the highest mountain range in South Africa?",listOf("Magaliesberg","Drakensberg","Waterberg","Cederberg"),1,"Geography"),
         Question("Who sang the song Rolling in the Deep?",listOf("Beyoncé","Adele","Rihanna","Sia"),1,"Music")
     )
-    private val selected = questions.shuffled().take(10)
+    private var selected = questions.shuffled().take(10)
     private val mutable = MutableStateFlow(GameState())
     val state = mutable.asStateFlow()
     val current: Question get() = selected[mutable.value.index.coerceIn(0, selected.lastIndex)]
@@ -41,8 +42,21 @@ class GameEngine {
             names = mutable.value.names.toMutableList().apply { set(player, cleanName) }
         )
     }
+    @Synchronized fun newGame() {
+        val previous = mutable.value
+        selected = questions.shuffled().take(10)
+        mutable.value = GameState(
+            players = previous.players,
+            names = previous.names,
+            round = previous.round + 1
+        )
+    }
+    @Synchronized fun newPlayers() {
+        selected = questions.shuffled().take(10)
+        mutable.value = GameState(round = mutable.value.round + 1)
+    }
     @Synchronized fun start() {
-        if (mutable.value.players.all { it }) mutable.value = mutable.value.copy(started = true)
+        if (!mutable.value.started && !mutable.value.finished && mutable.value.players.all { it }) mutable.value = mutable.value.copy(started = true)
     }
     @Synchronized fun answer(player: Int, option: Int) {
         val s = mutable.value
