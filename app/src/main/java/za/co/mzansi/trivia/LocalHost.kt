@@ -77,7 +77,7 @@ class LocalHost(private val engine: GameEngine) {
                         lastSeen[player]?.let { if(it!=conn) { sessions.remove(it); it.close() } }
                         sessions[conn]=player
                         lastSeen[player]=conn
-                        engine.join(player)
+                        engine.join(player, obj.optString("name"))
                         conn.send(JSONObject().put("type","joined").put("player",player+1).toString())
                         broadcast()
                     }
@@ -116,6 +116,7 @@ class LocalHost(private val engine: GameEngine) {
         val s=engine.state.value
         return JSONObject().put("type","state").put("index",s.index).put("started",s.started)
             .put("finished",s.finished).put("revealed",s.revealed)
+            .put("names",org.json.JSONArray(s.names))
             .put("health",org.json.JSONArray(s.health)).put("answered",org.json.JSONArray((0..1).map { s.answers.containsKey(it) }))
             .put("correct",if(s.revealed) engine.current.correct else JSONObject.NULL).toString()
     }
@@ -129,11 +130,11 @@ class LocalHost(private val engine: GameEngine) {
 h1{color:#ffdb4a;font-size:2.2rem}button{border:0;border-radius:20px;padding:20px;font-weight:900;font-size:1.3rem;color:#201344;box-shadow:0 7px 0 #1c174c}
 #options{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
 #options button{height:130px;font-size:3rem}#options button:nth-child(1){background:#ffb703}#options button:nth-child(2){background:#19c6c0}#options button:nth-child(3){background:#fd6c86}#options button:nth-child(4){background:#9c79ff}
-#options button:disabled{opacity:.35}input{padding:18px;border-radius:15px;font-size:1.3rem;width:180px;text-align:center}
+#options button:disabled{opacity:.35}input{padding:18px;border-radius:15px;font-size:1.3rem;width:220px;max-width:90%;text-align:center}
 [hidden]{display:none!important}small{opacity:.7}#status{margin:24px 0;font-size:1.3rem}#join{background:#ffdb4a;margin:12px}
 </style></head><body>
 <h1>🎉 READY TO PLAY?</h1><p id="status">Connect to the TV game</p>
-<div id="lobby"><input id="code" inputmode="numeric" maxlength="6" placeholder="Room code"/><br/><button id="join" onclick="join()">JOIN GAME</button></div>
+<div id="lobby"><input id="name" maxlength="18" placeholder="Your name" autocomplete="nickname"/><br/><br/><input id="code" inputmode="numeric" maxlength="6" placeholder="Room code"/><br/><button id="join" onclick="join()">JOIN GAME</button></div>
 <div id="options" hidden><button onclick="answer(0)">A</button><button onclick="answer(1)">B</button><button onclick="answer(2)">C</button><button onclick="answer(3)">D</button></div>
 <p><small>Watch the TV for the question and answer choices.</small></p>
 <script>
@@ -142,17 +143,19 @@ let socket=null,player=0,answered=false,lastIndex=-1;
 let identity=localStorage.getItem('mzansi-id');if(!identity){identity='phone-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);localStorage.setItem('mzansi-id',identity)}
 function join(){
  const room=document.getElementById('code').value.trim();
+ const name=document.getElementById('name').value.trim().slice(0,18);
+ if(!name){document.getElementById('status').textContent='Enter your name first';return}
  if(!/^\d{6}$/.test(room)){document.getElementById('status').textContent='Enter a six-digit room code';return}
  document.getElementById('status').textContent='Connecting to TV…';
  if(socket)socket.close();
  socket=new WebSocket('ws://'+location.hostname+':$wsPort');
- socket.onopen=()=>{document.getElementById('status').textContent='Connected to TV. Joining room…';socket.send(JSON.stringify({type:'join',room,id:identity}));};
+ socket.onopen=()=>{document.getElementById('status').textContent='Connected to TV. Joining room…';socket.send(JSON.stringify({type:'join',room,id:identity,name}));};
  socket.onerror=()=>document.getElementById('status').textContent='Cannot connect to TV WebSocket (port $wsPort). Check the TV game is open.';
  socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Live connection closed (port $wsPort). Tap JOIN to retry.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
  socket.onmessage=e=>{
   const data=JSON.parse(e.data);
   if(data.type==='error'){document.getElementById('status').textContent=data.message;return}
-  if(data.type==='joined'){player=data.player;document.getElementById('lobby').hidden=true;document.getElementById('status').textContent='Player '+player+' connected!';return}
+  if(data.type==='joined'){player=data.player;document.getElementById('lobby').hidden=true;document.getElementById('status').textContent='Welcome, '+document.getElementById('name').value.trim()+'!';return}
   if(data.type==='state'){
    if(data.index!==lastIndex){answered=false;lastIndex=data.index}
    const waiting=!data.started||data.finished||data.revealed;
@@ -164,7 +167,7 @@ function join(){
  }
 }
 function answer(option){if(!socket||socket.readyState!==1||answered)return;answered=true;socket.send(JSON.stringify({type:'answer',option}));document.querySelectorAll('#options button').forEach(b=>b.disabled=true)}
-if(params.has('room'))join();
+// Let each player enter their name before joining.
 </script></body></html>
 """.trimIndent()
 }
