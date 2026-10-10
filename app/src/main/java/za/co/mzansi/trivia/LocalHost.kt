@@ -102,13 +102,14 @@ small{opacity:.7}#status{margin:24px 0;font-size:1.3rem}#join{background:#ffdb4a
 <script>
 const params=new URLSearchParams(location.search);document.getElementById('code').value=params.get('room')||'';
 let socket=null,player=0,answered=false,lastIndex=-1;
-let identity=localStorage.getItem('mzansi-id');if(!identity){identity=crypto.randomUUID();localStorage.setItem('mzansi-id',identity)}
+let identity=localStorage.getItem('mzansi-id');if(!identity){identity='phone-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);localStorage.setItem('mzansi-id',identity)}
 function join(){
  const room=document.getElementById('code').value.trim();
  if(!/^\d{6}$/.test(room)){document.getElementById('status').textContent='Enter a six-digit room code';return}
  socket=new WebSocket('ws://'+location.hostname+':8081');
  socket.onopen=()=>socket.send(JSON.stringify({type:'join',room,id:identity}));
- socket.onclose=()=>document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';
+ socket.onerror=()=>document.getElementById('status').textContent='Cannot reach TV game server. Check both devices are on the same Wi-Fi.';
+ socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Connection failed. Check Wi-Fi and retry JOIN.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
  socket.onmessage=e=>{
   const data=JSON.parse(e.data);
   if(data.type==='error'){document.getElementById('status').textContent=data.message;return}
