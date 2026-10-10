@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
@@ -220,16 +221,68 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
     }
 }
 @Composable
-private fun HealthColumn(name:String,hp:Int,color:Color,modifier:Modifier=Modifier) {
-    Column(modifier,verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally) {
-        Text(name,color=Color(0xFFFFE7B5),fontFamily=headingFont,fontSize=19.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center,maxLines=2)
-        Spacer(Modifier.height(16.dp))
-        repeat(5) { i ->
-            val active = i >= 5-hp
-            val fill by animateColorAsState(if(active) color else Color(0xFF4E2C66),animationSpec=tween(650),label="health")
-            val healthScale by animateFloatAsState(if(active) 1f else 0.87f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="healthScale")
-            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).shadow(if(active) 8.dp else 0.dp,RoundedCornerShape(14.dp)).background(candyGradient(if(active) color.copy(alpha=0.66f) else fill,fill),RoundedCornerShape(14.dp)).border(1.dp,Color.White.copy(alpha=if(active) 0.55f else 0.12f),RoundedCornerShape(14.dp)))
+private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier = Modifier) {
+    val percentage = (hp.coerceIn(0, 5) * 20)
+    val animatedFill by animateFloatAsState(
+        targetValue = percentage / 100f,
+        animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+        label = "healthLevel"
+    )
+    val isBlue = color == Blue
+    val liquid = if (isBlue) {
+        Brush.verticalGradient(listOf(Color(0xFF2579F6), Color(0xFF12D8E9)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFF8327F5), Color(0xFFFA38C2)))
+    }
+    val capsule = RoundedCornerShape(40.dp)
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth(0.74f)
+                .height(330.dp)
+                .shadow(10.dp, capsule)
+                .clip(capsule)
+                .background(Color(0xFF342A66))
+                .border(2.dp, Color.White.copy(alpha = 0.15f), capsule)
+        ) {
+            Box(
+                Modifier.align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .fillMaxHeight(animatedFill)
+                    .background(liquid)
+            )
+            Box(
+                Modifier.align(Alignment.TopStart)
+                    .fillMaxWidth(0.23f)
+                    .fillMaxHeight()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color.White.copy(alpha = 0.13f), Color.Transparent)
+                        )
+                    )
+            )
+            Text(
+                "$percentage%",
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Black
+            )
         }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            name,
+            color = Color(0xFFFFE7B5),
+            fontFamily = headingFont,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 private fun qrBitmap(value:String):Bitmap {
