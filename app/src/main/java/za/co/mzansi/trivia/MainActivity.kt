@@ -265,13 +265,6 @@ private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier
                         )
                     )
             )
-            Text(
-                "$percentage%",
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Black
-            )
         }
         Spacer(Modifier.height(12.dp))
         Text(
