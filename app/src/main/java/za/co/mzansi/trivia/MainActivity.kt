@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,13 +37,15 @@ import com.google.zxing.common.BitMatrix
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private val Navy = Color(0xFF180B43)
-private val Yellow = Color(0xFFFFE268)
-private val Blue = Color(0xFF4FE9FF)
-private val Pink = Color(0xFFFF62C2)
+private val Navy = Color(0xFF173F36)
+private val Yellow = Color(0xFF235747)
+private val Blue = Color(0xFF168FA9)
+private val Pink = Color(0xFFB63F86)
 private val choices = listOf(Color(0xFFFFB92E),Color(0xFF36E5D3),Color(0xFFFF76B2),Color(0xFFAC83FF))
 private val choiceEnds = listOf(Color(0xFFFF793F),Color(0xFF12A9CD),Color(0xFFDB4E91),Color(0xFF6B53DB))
-private val arcadeBackground = Brush.linearGradient(listOf(Color(0xFF2B0B60),Color(0xFF171044),Color(0xFF101A49)))
+private val arcadeBackground = Brush.linearGradient(listOf(Color(0xFFE0FFE2),Color(0xFFB9F4CD),Color(0xFF78DDAE)))
+private val headingFont = FontFamily.SansSerif
+private val surfaceText = Color(0xFF194637)
 private fun candyGradient(start: Color, end: Color): Brush = Brush.verticalGradient(listOf(start.copy(alpha=0.98f),start,end))
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
@@ -94,14 +97,14 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
         HealthColumn(state.names[0],state.health[0],Blue,Modifier.weight(0.12f))
         Column(Modifier.weight(0.76f).fillMaxHeight(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
             if (!state.started) {
-                Text("READY TO PLAY?",fontSize=36.sp,fontWeight=FontWeight.Black,color=Yellow)
+                Text("READY TO PLAY?",fontSize=36.sp,fontWeight=FontWeight.Black,fontFamily=headingFont,color=Yellow)
                 Spacer(Modifier.height(12.dp))
-                Text("Scan the QR code on both phones",color=Color.White,fontSize=22.sp)
+                Text("Scan the QR code on both phones",color=surfaceText,fontSize=22.sp,fontFamily=headingFont)
                 Spacer(Modifier.height(14.dp))
                 if (url.isNotBlank()) {
                     val bitmap = remember(url) { qrBitmap(url) }
                     Image(bitmap.asImageBitmap(),null,Modifier.size(170.dp))
-                    Text(url,color=Color.White,fontSize=15.sp)
+                    Text(url,color=surfaceText,fontSize=15.sp)
                     Text("ROOM CODE: "+url.substringAfter("room="),color=Yellow,fontSize=22.sp,fontWeight=FontWeight.Black)
                 } else Text("Connect your TV to Wi-Fi",color=Pink)
                 Spacer(Modifier.height(10.dp))
@@ -118,9 +121,9 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 }
                 val winner = if (winnerIndex < 0) "IT'S A DRAW!" else "${state.names[winnerIndex]} WINS!"
                 val celebration by infinite.animateFloat(0.96f,1.05f,infiniteRepeatable(tween(700),RepeatMode.Reverse),label="celebration")
-                Text("🎉 $winner 🎉",modifier=Modifier.graphicsLayer(scaleX=celebration,scaleY=celebration),color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                Text("🎉 $winner 🎉",modifier=Modifier.graphicsLayer(scaleX=celebration,scaleY=celebration),fontFamily=headingFont,color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
                 Spacer(Modifier.height(14.dp))
-                Text("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}",color=Color.White,fontSize=20.sp,textAlign=TextAlign.Center)
+                Text("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}",color=surfaceText,fontSize=20.sp,textAlign=TextAlign.Center)
                 if (winnerIndex >= 0) {
                     val loserIndex = 1 - winnerIndex
                     val shots = 5 - state.health[loserIndex]
@@ -134,7 +137,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text("QUESTION ${state.index+1} / ${engine.questionCount}",color=Yellow,fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text("QUESTION ${state.index+1} / ${engine.questionCount}",color=Yellow,fontFamily=headingFont,fontSize=20.sp,fontWeight=FontWeight.Black
                     Spacer(Modifier.width(30.dp))
                     val timerColor by animateColorAsState(
                         if (state.revealed) Color(0xFF4ADE80) else if (seconds <= 5) Color.Red else Pink,
@@ -157,11 +160,11 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                     },
                     label="question"
                 ) { _ ->
-                    Box(Modifier.fillMaxWidth().shadow(15.dp,RoundedCornerShape(24.dp)).background(candyGradient(Color(0xFF8540D8),Color(0xFF472C9D)),RoundedCornerShape(24.dp)).border(2.dp,Color(0xFFB99BFF).copy(alpha=0.6f),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().shadow(15.dp,RoundedCornerShape(24.dp)).background(candyGradient(Color(0xFFAD43E4),Color(0xFFEF57B1)),RoundedCornerShape(24.dp)).border(2.dp,Color.White.copy(alpha=0.72f),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
                         Column(horizontalAlignment=Alignment.CenterHorizontally) {
                             Text(engine.current.category.uppercase(),color=Yellow,fontSize=14.sp,fontWeight=FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
-                            Text(engine.current.prompt,color=Color.White,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
+                            Text(engine.current.prompt,color=Color.White,fontFamily=headingFont,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
                         }
                     }
                 }
@@ -189,10 +192,10 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                         val result = if (answer == null) "TIME UP" else if (answer == engine.current.correct) "CORRECT ✓" else "WRONG ✕"
                         "${state.names[player]}: $result"
                     }
-                    Text("✨ ${engine.current.options[engine.current.correct]} ✨",color=Yellow,fontSize=(23*pulse).sp,fontWeight=FontWeight.Black)
-                    Text(results,color=Color.White,fontSize=17.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+                    Text("✨ ${engine.current.options[engine.current.correct]} ✨",fontFamily=headingFont,color=Yellow,fontSize=(23*pulse).sp,fontWeight=FontWeight.Black)
+                    Text(results,color=surfaceText,fontSize=17.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
                 }
-                else Text("Answer on your phone!",color=Color.White,fontSize=18.sp)
+                else Text("Answer on your phone!",color=surfaceText,fontSize=18.sp)
             }
         }
         HealthColumn(state.names[1],state.health[1],Pink,Modifier.weight(0.12f))
@@ -201,13 +204,13 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
 @Composable
 private fun HealthColumn(name:String,hp:Int,color:Color,modifier:Modifier=Modifier) {
     Column(modifier,verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally) {
-        Text(name,color=color,fontSize=19.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center,maxLines=2)
+        Text(name,color=surfaceText,fontFamily=headingFont,fontSize=19.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center,maxLines=2)
         Spacer(Modifier.height(16.dp))
         repeat(5) { i ->
             val active = i >= 5-hp
-            val fill by animateColorAsState(if(active) color else Color(0xFF443B61),animationSpec=tween(650),label="health")
+            val fill by animateColorAsState(if(active) color else Color(0xFF9ACAB3),animationSpec=tween(650),label="health")
             val healthScale by animateFloatAsState(if(active) 1f else 0.87f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="healthScale")
-            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).shadow(if(active) 8.dp else 0.dp,RoundedCornerShape(14.dp)).background(candyGradient(if(active) Color.White.copy(alpha=0.65f) else fill,fill),RoundedCornerShape(14.dp)).border(1.dp,Color.White.copy(alpha=if(active) 0.55f else 0.12f),RoundedCornerShape(14.dp)))
+            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).shadow(if(active) 8.dp else 0.dp,RoundedCornerShape(14.dp)).background(candyGradient(if(active) color.copy(alpha=0.48f) else fill,fill),RoundedCornerShape(14.dp)).border(1.dp,Color.White.copy(alpha=if(active) 0.55f else 0.12f),RoundedCornerShape(14.dp)))
         }
     }
 }
