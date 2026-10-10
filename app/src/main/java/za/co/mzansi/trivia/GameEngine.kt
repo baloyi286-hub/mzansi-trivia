@@ -7,7 +7,8 @@ data class Question(val prompt: String, val options: List<String>, val correct: 
 data class GameState(
     val index: Int = 0, val health: List<Int> = listOf(5, 5),
     val correctCounts: List<Int> = listOf(0, 0), val answers: Map<Int, Int> = emptyMap(),
-    val players: List<Boolean> = listOf(false, false), val revealed: Boolean = false,
+    val players: List<Boolean> = listOf(false, false),
+    val names: List<String> = listOf("Player 1", "Player 2"), val revealed: Boolean = false,
     val started: Boolean = false, val finished: Boolean = false
 )
 class GameEngine {
@@ -32,9 +33,13 @@ class GameEngine {
     private val mutable = MutableStateFlow(GameState())
     val state = mutable.asStateFlow()
     val current: Question get() = selected[mutable.value.index.coerceIn(0, selected.lastIndex)]
-    @Synchronized fun join(player: Int) {
+    @Synchronized fun join(player: Int, name: String) {
         if (player !in 0..1) return
-        mutable.value = mutable.value.copy(players = mutable.value.players.toMutableList().apply { set(player,true) })
+        val cleanName = name.trim().take(18).ifBlank { "Player ${player + 1}" }
+        mutable.value = mutable.value.copy(
+            players = mutable.value.players.toMutableList().apply { set(player, true) },
+            names = mutable.value.names.toMutableList().apply { set(player, cleanName) }
+        )
     }
     @Synchronized fun start() {
         if (mutable.value.players.all { it }) mutable.value = mutable.value.copy(started = true)
