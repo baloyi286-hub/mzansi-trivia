@@ -89,7 +89,7 @@ private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
                 if (url.isNotBlank()) {
                     val bitmap = remember(url) { qrBitmap(url) }
                     Image(bitmap.asImageBitmap(),null,Modifier.size(170.dp))
-                    Text(url,color=Color.White,fontSize=15.sp)
+                    Text(url,color=Color.White,fontSize=15.sp)\n                    Text("ROOM CODE: "+url.substringAfter("room="),color=Yellow,fontSize=22.sp,fontWeight=FontWeight.Black)
                 } else Text("Connect your TV to Wi-Fi",color=Pink)
                 Spacer(Modifier.height(10.dp))
                 Text("Player 1: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    Player 2: ${if(state.players[1]) "CONNECTED" else "WAITING"}",color=Yellow,fontSize=16.sp)
