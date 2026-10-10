@@ -17,15 +17,38 @@ class LocalHost(private val engine: GameEngine) {
     private val identities = ConcurrentHashMap<String,Int>()
     private val lastSeen = ConcurrentHashMap<Int,WebSocket>()
     private val address: String = try {
-        NetworkInterface.getNetworkInterfaces().toList().flatMap { it.inetAddresses.toList() }
-            .firstOrNull { it is Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress ?: ""
-    } catch (_:Exception) { "" }
+        val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        val preferred = listOf("wlan0", "eth0")
+        val ordered = interfaces.sortedBy { iface ->
+            val index = preferred.indexOf(iface.name)
+            if (index >= 0) index else preferred.size
+        }
+        ordered.asSequence()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList().asSequence() }
+            .filterIsInstance<Inet4Address>()
+            .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }
+            ?.hostAddress ?: ""
+    } catch (ex: Exception) {
+        android.util.Log.e("MzansiTrivia", "Could not resolve TV network address", ex)
+        ""
+    }
     val url = if(address.isBlank()) "" else "http://$address:8080/?room=$room"
     private val http = object:NanoHTTPD(8080) {
-        override fun serve(session:IHTTPSession):Response =
-            newFixedLengthResponse(Response.Status.OK,"text/html; charset=utf-8", controllerHtml)
+        override fun serve(session:IHTTPSession):Response {
+            if (session.uri == "/health") {
+                val status = JSONObject()
+                    .put("http", "ok")
+                    .put("websocket", if (wsReady) "ready" else "starting_or_failed")
+                    .put("ip", address)
+                    .toString()
+                return newFixedLengthResponse(Response.Status.OK, "application/json", status)
+            }
+            return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", controllerHtml)
+        }
     }
-    private val ws = object:WebSocketServer(InetSocketAddress(8081)) {
+    @Volatile private var wsReady = false
+    private val ws = object:WebSocketServer(InetSocketAddress("0.0.0.0", 8081)) {
         override fun onOpen(conn:WebSocket,handshake:ClientHandshake) {}
         override fun onClose(conn:WebSocket,code:Int,reason:String,remote:Boolean) {
             sessions.remove(conn)
@@ -58,7 +81,7 @@ class LocalHost(private val engine: GameEngine) {
             } catch (_:Exception) { conn.send("""{"type":"error","message":"Invalid message"}""") }
         }
         override fun onError(conn:WebSocket?,ex:Exception) { android.util.Log.e("MzansiTrivia","WebSocket error",ex) }
-        override fun onStart() {}
+        override fun onStart() { wsReady = true; android.util.Log.i("MzansiTrivia", "WebSocket listening on port 8081") }
     }
     @Volatile private var running=false
     fun start() {
@@ -93,7 +116,7 @@ h1{color:#ffdb4a;font-size:2.2rem}button{border:0;border-radius:20px;padding:20p
 #options{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
 #options button{height:130px;font-size:3rem}#options button:nth-child(1){background:#ffb703}#options button:nth-child(2){background:#19c6c0}#options button:nth-child(3){background:#fd6c86}#options button:nth-child(4){background:#9c79ff}
 #options button:disabled{opacity:.35}input{padding:18px;border-radius:15px;font-size:1.3rem;width:180px;text-align:center}
-small{opacity:.7}#status{margin:24px 0;font-size:1.3rem}#join{background:#ffdb4a;margin:12px}
+[hidden]{display:none!important}small{opacity:.7}#status{margin:24px 0;font-size:1.3rem}#join{background:#ffdb4a;margin:12px}
 </style></head><body>
 <h1>🎉 READY TO PLAY?</h1><p id="status">Connect to the TV game</p>
 <div id="lobby"><input id="code" inputmode="numeric" maxlength="6" placeholder="Room code"/><br/><button id="join" onclick="join()">JOIN GAME</button></div>
@@ -106,10 +129,12 @@ let identity=localStorage.getItem('mzansi-id');if(!identity){identity='phone-'+D
 function join(){
  const room=document.getElementById('code').value.trim();
  if(!/^\d{6}$/.test(room)){document.getElementById('status').textContent='Enter a six-digit room code';return}
+ document.getElementById('status').textContent='Connecting to TV…';
+ if(socket)socket.close();
  socket=new WebSocket('ws://'+location.hostname+':8081');
- socket.onopen=()=>socket.send(JSON.stringify({type:'join',room,id:identity}));
- socket.onerror=()=>document.getElementById('status').textContent='Cannot reach TV game server. Check both devices are on the same Wi-Fi.';
- socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Connection failed. Check Wi-Fi and retry JOIN.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
+ socket.onopen=()=>{document.getElementById('status').textContent='Connected to TV. Joining room…';socket.send(JSON.stringify({type:'join',room,id:identity}));};
+ socket.onerror=()=>document.getElementById('status').textContent='Cannot connect to TV WebSocket (port 8081). Check the TV game is open.';
+ socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Live connection closed (port 8081). Tap JOIN to retry.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
  socket.onmessage=e=>{
   const data=JSON.parse(e.data);
   if(data.type==='error'){document.getElementById('status').textContent=data.message;return}
