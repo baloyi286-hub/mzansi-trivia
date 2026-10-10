@@ -80,7 +80,7 @@ private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
     val infinite = rememberInfiniteTransition(label="background")
     val pulse by infinite.animateFloat(0.94f,1.06f,infiniteRepeatable(tween(900),RepeatMode.Reverse),label="pulse")
     Row(Modifier.fillMaxSize().background(Navy).padding(28.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(20.dp)) {
-        HealthColumn(0,state.health[0],Blue,Modifier.weight(0.12f))
+        HealthColumn(state.names[0],state.health[0],Blue,Modifier.weight(0.12f))
         Column(Modifier.weight(0.76f).fillMaxHeight(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
             if (!state.started) {
                 Text("READY TO PLAY?",fontSize=36.sp,fontWeight=FontWeight.Black,color=Yellow)
@@ -94,19 +94,27 @@ private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
                     Text("ROOM CODE: "+url.substringAfter("room="),color=Yellow,fontSize=22.sp,fontWeight=FontWeight.Black)
                 } else Text("Connect your TV to Wi-Fi",color=Pink)
                 Spacer(Modifier.height(10.dp))
-                Text("Player 1: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    Player 2: ${if(state.players[1]) "CONNECTED" else "WAITING"}",color=Yellow,fontSize=16.sp)
+                Text("${state.names[0]}: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    ${state.names[1]}: ${if(state.players[1]) "CONNECTED" else "WAITING"}",color=Yellow,fontSize=16.sp)
                 Spacer(Modifier.height(12.dp))
                 Button(onClick={engine.start()},enabled=state.players.all{it},colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("START GAME",fontSize=20.sp) }
             } else if(state.finished) {
-                val winner = when {
-                    state.health[0]>state.health[1] -> "PLAYER 1 WINS!"
-                    state.health[1]>state.health[0] -> "PLAYER 2 WINS!"
-                    state.correctCounts[0]>state.correctCounts[1] -> "PLAYER 1 WINS!"
-                    state.correctCounts[1]>state.correctCounts[0] -> "PLAYER 2 WINS!"
-                    else -> "IT'S A DRAW!"
+                val winnerIndex = when {
+                    state.health[0] > state.health[1] -> 0
+                    state.health[1] > state.health[0] -> 1
+                    state.correctCounts[0] > state.correctCounts[1] -> 0
+                    state.correctCounts[1] > state.correctCounts[0] -> 1
+                    else -> -1
                 }
-                Text("🎉 $winner 🎉",color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black)
-                Text("Correct answers: ${state.correctCounts[0]} — ${state.correctCounts[1]}",color=Color.White,fontSize=22.sp)
+                val winner = if (winnerIndex < 0) "IT'S A DRAW!" else "${state.names[winnerIndex]} WINS!"
+                Text("🎉 $winner 🎉",color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                Spacer(Modifier.height(14.dp))
+                Text("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}",color=Color.White,fontSize=20.sp,textAlign=TextAlign.Center)
+                if (winnerIndex >= 0) {
+                    val loserIndex = 1 - winnerIndex
+                    val shots = 5 - state.health[loserIndex]
+                    Spacer(Modifier.height(20.dp))
+                    Text("${state.names[loserIndex]} takes $shots ${if(shots == 1) "shot" else "shots"}! 🥃",color=Pink,fontSize=27.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
                     Text("QUESTION ${state.index+1} / 10",color=Yellow,fontSize=20.sp,fontWeight=FontWeight.Bold)
@@ -137,20 +145,18 @@ private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
                 else Text("Answer on your phone!",color=Color.White,fontSize=18.sp)
             }
         }
-        HealthColumn(1,state.health[1],Pink,Modifier.weight(0.12f))
+        HealthColumn(state.names[1],state.health[1],Pink,Modifier.weight(0.12f))
     }
 }
 @Composable
-private fun HealthColumn(player:Int,hp:Int,color:Color,modifier:Modifier=Modifier) {
+private fun HealthColumn(name:String,hp:Int,color:Color,modifier:Modifier=Modifier) {
     Column(modifier,verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally) {
-        Text("P${player+1}",color=color,fontSize=25.sp,fontWeight=FontWeight.Black)
+        Text(name,color=color,fontSize=19.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center,maxLines=2)
         Spacer(Modifier.height(16.dp))
         repeat(5) { i ->
             val fill by animateColorAsState(if(i<5-hp) Color(0xFF443B61) else color,animationSpec=tween(650),label="health")
             Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).background(fill,RoundedCornerShape(12.dp)))
         }
-        Spacer(Modifier.height(8.dp))
-        Text("$hp HP",color=Color.White,fontSize=18.sp,fontWeight=FontWeight.Bold)
     }
 }
 private fun qrBitmap(value:String):Bitmap {
