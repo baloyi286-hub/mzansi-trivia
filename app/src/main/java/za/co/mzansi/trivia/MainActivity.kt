@@ -21,8 +21,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,11 +36,14 @@ import com.google.zxing.common.BitMatrix
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private val Navy = Color(0xFF171443)
-private val Yellow = Color(0xFFFFD747)
-private val Blue = Color(0xFF32C6FF)
-private val Pink = Color(0xFFFF5D9E)
-private val choices = listOf(Color(0xFFFFB703),Color(0xFF19C6C0),Color(0xFFFD6C86),Color(0xFF9C79FF))
+private val Navy = Color(0xFF180B43)
+private val Yellow = Color(0xFFFFE268)
+private val Blue = Color(0xFF4FE9FF)
+private val Pink = Color(0xFFFF62C2)
+private val choices = listOf(Color(0xFFFFB92E),Color(0xFF36E5D3),Color(0xFFFF76B2),Color(0xFFAC83FF))
+private val choiceEnds = listOf(Color(0xFFFF793F),Color(0xFF12A9CD),Color(0xFFDB4E91),Color(0xFF6B53DB))
+private val arcadeBackground = Brush.linearGradient(listOf(Color(0xFF2B0B60),Color(0xFF171044),Color(0xFF101A49)))
+private fun candyGradient(start: Color, end: Color): Brush = Brush.verticalGradient(listOf(start.copy(alpha=0.98f),start,end))
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val engine = GameEngine()
@@ -85,7 +90,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
     }
     val infinite = rememberInfiniteTransition(label="background")
     val pulse by infinite.animateFloat(0.94f,1.06f,infiniteRepeatable(tween(900),RepeatMode.Reverse),label="pulse")
-    Row(Modifier.fillMaxSize().background(Navy).padding(28.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(20.dp)) {
+    Row(Modifier.fillMaxSize().background(arcadeBackground).padding(28.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(20.dp)) {
         HealthColumn(state.names[0],state.health[0],Blue,Modifier.weight(0.12f))
         Column(Modifier.weight(0.76f).fillMaxHeight(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
             if (!state.started) {
@@ -102,7 +107,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 Spacer(Modifier.height(10.dp))
                 Text("${state.names[0]}: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    ${state.names[1]}: ${if(state.players[1]) "CONNECTED" else "WAITING"}",color=Yellow,fontSize=16.sp)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick={engine.start()},enabled=state.players.all{it},colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("START GAME",fontSize=20.sp) }
+                Button(onClick={engine.start()},enabled=state.players.all{it},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("✦ START GAME ✦",fontSize=20.sp,fontWeight=FontWeight.Black) }
             } else if(state.finished) {
                 val winnerIndex = when {
                     state.health[0] > state.health[1] -> 0
@@ -124,8 +129,8 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 }
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-                    Button(onClick={engine.newGame()},colors=ButtonDefaults.buttonColors(containerColor=Blue)) { Text("NEW GAME",color=Navy) }
-                    Button(onClick={host.newPlayers()},colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("NEW PLAYERS",color=Navy) }
+                    Button(onClick={engine.newGame()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Blue)) { Text("↻ NEW GAME",color=Navy,fontWeight=FontWeight.Black) }
+                    Button(onClick={host.newPlayers()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("✦ NEW PLAYERS",color=Navy,fontWeight=FontWeight.Black) }
                 }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
@@ -152,7 +157,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                     },
                     label="question"
                 ) { _ ->
-                    Box(Modifier.fillMaxWidth().background(Color(0xFF31286F),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().shadow(15.dp,RoundedCornerShape(24.dp)).background(candyGradient(Color(0xFF8540D8),Color(0xFF472C9D)),RoundedCornerShape(24.dp)).border(2.dp,Color(0xFFB99BFF).copy(alpha=0.6f),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
                         Column(horizontalAlignment=Alignment.CenterHorizontally) {
                             Text(engine.current.category.uppercase(),color=Yellow,fontSize=14.sp,fontWeight=FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
@@ -171,7 +176,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                                 animationSpec=tween(420),label="optionColor"
                             )
                             val optionScale by animateFloatAsState(if(correct) 1.045f else 1f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="correctScale")
-                            Box(Modifier.weight(1f).height(76.dp).graphicsLayer(scaleX=optionScale,scaleY=optionScale).background(bg,RoundedCornerShape(20.dp)).border(if(correct) 4.dp else 0.dp,Color.White,RoundedCornerShape(20.dp)).padding(12.dp),contentAlignment=Alignment.Center) {
+                            Box(Modifier.weight(1f).height(76.dp).graphicsLayer(scaleX=optionScale,scaleY=optionScale).shadow(if(correct) 18.dp else 9.dp,RoundedCornerShape(20.dp)).background(candyGradient(if(correct) Color(0xFF93FFD0) else bg,if(correct) Color(0xFF15B980) else choiceEnds[i].copy(alpha=if(state.revealed) 0.42f else 1f)),RoundedCornerShape(20.dp)).border(if(correct) 4.dp else 2.dp,Color.White.copy(alpha=if(correct) 1f else 0.52f),RoundedCornerShape(20.dp)).padding(12.dp),contentAlignment=Alignment.Center) {
                                 Text("${'A'+i}. $answer",color=Color(0xFF19143D),fontSize=20.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
                             }
                         }
@@ -202,7 +207,7 @@ private fun HealthColumn(name:String,hp:Int,color:Color,modifier:Modifier=Modifi
             val active = i >= 5-hp
             val fill by animateColorAsState(if(active) color else Color(0xFF443B61),animationSpec=tween(650),label="health")
             val healthScale by animateFloatAsState(if(active) 1f else 0.87f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="healthScale")
-            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).background(fill,RoundedCornerShape(12.dp)))
+            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).shadow(if(active) 8.dp else 0.dp,RoundedCornerShape(14.dp)).background(candyGradient(if(active) Color.White.copy(alpha=0.65f) else fill,fill),RoundedCornerShape(14.dp)).border(1.dp,Color.White.copy(alpha=if(active) 0.55f else 0.12f),RoundedCornerShape(14.dp)))
         }
     }
 }
