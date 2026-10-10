@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speech = TextToSpeech(this,this)
         host = LocalHost(engine)
         host.start()
-        setContent { GameScreen(engine,host.url) { speak(it) } }
+        setContent { GameScreen(engine,host) { speak(it) } }
     }
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
@@ -61,20 +61,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 }
 
 @Composable
-private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
+private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Unit) {
+    val url = host.url
     val state by engine.state.collectAsState()
-    var seconds by remember(state.index,state.started) { mutableIntStateOf(15) }
-    LaunchedEffect(state.started,state.index,state.finished) {
+    var seconds by remember(state.round,state.index,state.started) { mutableIntStateOf(15) }
+    LaunchedEffect(state.round,state.started,state.index,state.finished) {
         if (state.started && !state.finished) speak(engine.current.prompt + ". " + engine.current.options.mapIndexed { i,v -> "${'A'+i}: $v." }.joinToString(" "))
     }
-    LaunchedEffect(state.started,state.index,state.revealed,state.finished) {
+    LaunchedEffect(state.round,state.started,state.index,state.revealed,state.finished) {
         if (state.started && !state.revealed && !state.finished) {
             seconds=15
             while (seconds > 0 && !engine.state.value.revealed) { delay(1000); seconds-- }
             if (!engine.state.value.revealed) engine.reveal()
         }
     }
-    LaunchedEffect(state.revealed,state.index) {
+    LaunchedEffect(state.round,state.revealed,state.index) {
         if (state.revealed && !state.finished) { delay(3300); engine.next() }
     }
     val infinite = rememberInfiniteTransition(label="background")
@@ -114,6 +115,11 @@ private fun GameScreen(engine: GameEngine, url: String, speak: (String)->Unit) {
                     val shots = 5 - state.health[loserIndex]
                     Spacer(Modifier.height(20.dp))
                     Text("${state.names[loserIndex]} takes $shots ${if(shots == 1) "shot" else "shots"}! 🥃",color=Pink,fontSize=27.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                }
+                Spacer(Modifier.height(24.dp))
+                Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                    Button(onClick={engine.newGame()},colors=ButtonDefaults.buttonColors(containerColor=Blue)) { Text("NEW GAME",color=Navy) }
+                    Button(onClick={host.newPlayers()},colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("NEW PLAYERS",color=Navy) }
                 }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
