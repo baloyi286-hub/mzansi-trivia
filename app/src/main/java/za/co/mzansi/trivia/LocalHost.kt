@@ -8,6 +8,9 @@ import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.ServerSocket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
@@ -33,14 +36,20 @@ class LocalHost(private val engine: GameEngine) {
         android.util.Log.e("MzansiTrivia", "Could not resolve TV network address", ex)
         ""
     }
-    val url = if(address.isBlank()) "" else "http://$address:8080/?room=$room"
-    private val http = object:NanoHTTPD(8080) {
+    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
+    private val httpPort = freePort()
+    private val wsPort = generateSequence { freePort() }.first { it != httpPort }
+    val url = if(address.isBlank()) "" else "http://$address:$httpPort/?room=$room"
+    private val wsStarted = CountDownLatch(1)
+    private val http = object:NanoHTTPD(httpPort) {
         override fun serve(session:IHTTPSession):Response {
             if (session.uri == "/health") {
                 val status = JSONObject()
                     .put("http", "ok")
                     .put("websocket", if (wsReady) "ready" else "starting_or_failed")
                     .put("ip", address)
+                    .put("httpPort", httpPort)
+                    .put("websocketPort", wsPort)
                     .toString()
                 return newFixedLengthResponse(Response.Status.OK, "application/json", status)
             }
@@ -48,7 +57,7 @@ class LocalHost(private val engine: GameEngine) {
         }
     }
     @Volatile private var wsReady = false
-    private val ws = object:WebSocketServer(InetSocketAddress("0.0.0.0", 8081)) {
+    private val ws = object:WebSocketServer(InetSocketAddress("0.0.0.0", wsPort)) {
         override fun onOpen(conn:WebSocket,handshake:ClientHandshake) {}
         override fun onClose(conn:WebSocket,code:Int,reason:String,remote:Boolean) {
             sessions.remove(conn)
@@ -80,13 +89,18 @@ class LocalHost(private val engine: GameEngine) {
                 }
             } catch (_:Exception) { conn.send("""{"type":"error","message":"Invalid message"}""") }
         }
-        override fun onError(conn:WebSocket?,ex:Exception) { android.util.Log.e("MzansiTrivia","WebSocket error",ex) }
-        override fun onStart() { wsReady = true; android.util.Log.i("MzansiTrivia", "WebSocket listening on port 8081") }
+        override fun onError(conn:WebSocket?,ex:Exception) { android.util.Log.e("MzansiTrivia","WebSocket error on port $wsPort",ex); wsStarted.countDown() }
+        override fun onStart() { wsReady = true; wsStarted.countDown(); android.util.Log.i("MzansiTrivia", "WebSocket listening on port $wsPort") }
     }
     @Volatile private var running=false
     fun start() {
         http.start(NanoHTTPD.SOCKET_READ_TIMEOUT,false)
         ws.start()
+        wsStarted.await(5, TimeUnit.SECONDS)
+        if (!wsReady) {
+            http.stop()
+            throw IllegalStateException("WebSocket could not start on port $wsPort; see MzansiTrivia logs")
+        }
         running=true
         thread(name="trivia-state-broadcast",isDaemon=true) {
             var previous=""
@@ -131,10 +145,10 @@ function join(){
  if(!/^\d{6}$/.test(room)){document.getElementById('status').textContent='Enter a six-digit room code';return}
  document.getElementById('status').textContent='Connecting to TV…';
  if(socket)socket.close();
- socket=new WebSocket('ws://'+location.hostname+':8081');
+ socket=new WebSocket('ws://'+location.hostname+':$wsPort');
  socket.onopen=()=>{document.getElementById('status').textContent='Connected to TV. Joining room…';socket.send(JSON.stringify({type:'join',room,id:identity}));};
- socket.onerror=()=>document.getElementById('status').textContent='Cannot connect to TV WebSocket (port 8081). Check the TV game is open.';
- socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Live connection closed (port 8081). Tap JOIN to retry.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
+ socket.onerror=()=>document.getElementById('status').textContent='Cannot connect to TV WebSocket (port $wsPort). Check the TV game is open.';
+ socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Live connection closed (port $wsPort). Tap JOIN to retry.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
  socket.onmessage=e=>{
   const data=JSON.parse(e.data);
   if(data.type==='error'){document.getElementById('status').textContent=data.message;return}
