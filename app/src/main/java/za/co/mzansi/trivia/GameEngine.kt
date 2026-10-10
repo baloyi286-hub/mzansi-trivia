@@ -58,7 +58,7 @@ class GameEngine {
     @Synchronized fun next() {
         val s = mutable.value
         if (!s.revealed) return
-        val done = s.index >= 9 || s.health.any { it == 0 }
+        val done = s.index >= 9
         mutable.value = s.copy(index = if (done) s.index else s.index+1, answers = emptyMap(), revealed = false, finished = done)
     }
 }
