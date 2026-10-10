@@ -155,18 +155,19 @@ class LocalHost(private val engine: GameEngine) {
 <style>
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#16134c,#5e2489);color:white;font-family:system-ui,sans-serif;text-align:center;min-height:100vh;padding:24px}
 h1{color:#ffdb4a;font-size:2.2rem}button{border:0;border-radius:20px;padding:20px;font-weight:900;font-size:1.3rem;color:#201344;box-shadow:0 7px 0 #1c174c}
-#options{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
+#actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:16px 0}#actions button{font-size:1rem;padding:15px;background:#ffdb4a}#options{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
 #options button{height:130px;font-size:3rem}#options button:nth-child(1){background:#ffb703}#options button:nth-child(2){background:#19c6c0}#options button:nth-child(3){background:#fd6c86}#options button:nth-child(4){background:#9c79ff}
 #options button:disabled{opacity:.35}input{padding:18px;border-radius:15px;font-size:1.3rem;width:220px;max-width:90%;text-align:center}
 [hidden]{display:none!important}small{opacity:.7}#status{margin:24px 0;font-size:1.3rem}#join{background:#ffdb4a;margin:12px}
 </style></head><body>
 <h1>🎉 READY TO PLAY?</h1><p id="status">Connect to the TV game</p>
 <div id="lobby"><input id="name" maxlength="18" placeholder="Your name" autocomplete="nickname"/><br/><br/><input id="code" inputmode="numeric" maxlength="6" placeholder="Room code"/><br/><button id="join" onclick="join()">JOIN GAME</button></div>
+<div id="actions" hidden><button id="start" onclick="sendAction('start')">START GAME</button><button id="replay" onclick="sendAction('new_game')">NEW GAME</button><button id="newplayers" onclick="sendAction('new_players')">NEW PLAYERS</button></div>
 <div id="options" hidden><button onclick="answer(0)">A</button><button onclick="answer(1)">B</button><button onclick="answer(2)">C</button><button onclick="answer(3)">D</button></div>
 <p><small>Watch the TV for the question and answer choices.</small></p>
 <script>
 const params=new URLSearchParams(location.search);document.getElementById('code').value=params.get('room')||'';
-let socket=null,player=0,answered=false,lastIndex=-1;
+let socket=null,player=0,answered=false,lastIndex=-1,lastRound=-1;
 let identity=localStorage.getItem('mzansi-id');if(!identity){identity='phone-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);localStorage.setItem('mzansi-id',identity)}
 function join(){
  const room=document.getElementById('code').value.trim();
@@ -181,18 +182,32 @@ function join(){
  socket.onclose=()=>{if(!player)document.getElementById('status').textContent='Live connection closed (port $wsPort). Tap JOIN to retry.';else document.getElementById('status').textContent='Disconnected. Tap JOIN to reconnect.';};
  socket.onmessage=e=>{
   const data=JSON.parse(e.data);
+  if(data.type==='reset'){
+   player=0;answered=false;lastIndex=-1;lastRound=-1;
+   document.getElementById('lobby').hidden=false;
+   document.getElementById('actions').hidden=true;
+   document.getElementById('options').hidden=true;
+   document.getElementById('code').value='';
+   document.getElementById('status').textContent='New players: scan the new TV QR code to join.';
+   socket.close();return;
+  }
   if(data.type==='error'){document.getElementById('status').textContent=data.message;return}
   if(data.type==='joined'){player=data.player;document.getElementById('lobby').hidden=true;document.getElementById('status').textContent='Welcome, '+document.getElementById('name').value.trim()+'!';return}
   if(data.type==='state'){
-   if(data.index!==lastIndex){answered=false;lastIndex=data.index}
+   if(data.index!==lastIndex||data.round!==lastRound){answered=false;lastIndex=data.index;lastRound=data.round}
    const waiting=!data.started||data.finished||data.revealed;
    const already=data.answered[player-1]||answered;
    document.getElementById('options').hidden=waiting;
+   document.getElementById('actions').hidden=false;
+   document.getElementById('start').hidden=data.started||data.finished||!data.players.every(Boolean);
+   document.getElementById('replay').hidden=!data.finished;
+   document.getElementById('newplayers').hidden=!data.finished;
    document.querySelectorAll('#options button').forEach(b=>b.disabled=already);
    document.getElementById('status').textContent=data.finished?'Game over!':!data.started?'Waiting for both players and TV host…':data.revealed?'Answer revealed!':already?'Answer locked in!':'Question '+(data.index+1)+'/10 — Choose an answer!';
   }
  }
 }
+function sendAction(type){if(socket&&socket.readyState===1)socket.send(JSON.stringify({type}));}
 function answer(option){if(!socket||socket.readyState!==1||answered)return;answered=true;socket.send(JSON.stringify({type:'answer',option}));document.querySelectorAll('#options button').forEach(b=>b.disabled=true)}
 // Let each player enter their name before joining.
 </script></body></html>
