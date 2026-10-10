@@ -153,7 +153,11 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                     label="question"
                 ) { _ ->
                     Box(Modifier.fillMaxWidth().background(Color(0xFF31286F),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
-                        Text(engine.current.prompt,color=Color.White,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
+                        Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                            Text(engine.current.category.uppercase(),color=Yellow,fontSize=14.sp,fontWeight=FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            Text(engine.current.prompt,color=Color.White,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
+                        }
                     }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -174,7 +178,15 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                     }
                     Spacer(Modifier.height(12.dp))
                 }
-                if(state.revealed) Text("✨ ${engine.current.options[engine.current.correct]} ✨",color=Yellow,fontSize=(23*pulse).sp,fontWeight=FontWeight.Black)
+                if(state.revealed) {
+                    val results = (0..1).joinToString("    •    ") { player ->
+                        val answer = state.answers[player]
+                        val result = if (answer == null) "TIME UP" else if (answer == engine.current.correct) "CORRECT ✓" else "WRONG ✕"
+                        "${state.names[player]}: $result"
+                    }
+                    Text("✨ ${engine.current.options[engine.current.correct]} ✨",color=Yellow,fontSize=(23*pulse).sp,fontWeight=FontWeight.Black)
+                    Text(results,color=Color.White,fontSize=17.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+                }
                 else Text("Answer on your phone!",color=Color.White,fontSize=18.sp)
             }
         }
