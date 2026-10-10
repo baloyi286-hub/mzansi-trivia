@@ -143,7 +143,7 @@ class LocalHost(private val engine: GameEngine) {
             .put("finished",s.finished).put("revealed",s.revealed)
             .put("names",org.json.JSONArray(s.names))
             .put("players",org.json.JSONArray(s.players))
-            .put("round",s.round
+            .put("round",s.round)
             .put("health",org.json.JSONArray(s.health)).put("answered",org.json.JSONArray((0..1).map { s.answers.containsKey(it) }))
             .put("correct",if(s.revealed) engine.current.correct else JSONObject.NULL).toString()
     }
