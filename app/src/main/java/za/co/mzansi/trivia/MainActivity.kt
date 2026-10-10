@@ -8,6 +8,10 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -18,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -107,7 +112,8 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                     else -> -1
                 }
                 val winner = if (winnerIndex < 0) "IT'S A DRAW!" else "${state.names[winnerIndex]} WINS!"
-                Text("🎉 $winner 🎉",color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                val celebration by infinite.animateFloat(0.96f,1.05f,infiniteRepeatable(tween(700),RepeatMode.Reverse),label="celebration")
+                Text("🎉 $winner 🎉",modifier=Modifier.graphicsLayer(scaleX=celebration,scaleY=celebration),color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
                 Spacer(Modifier.height(14.dp))
                 Text("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}",color=Color.White,fontSize=20.sp,textAlign=TextAlign.Center)
                 if (winnerIndex >= 0) {
@@ -123,12 +129,29 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text("QUESTION ${state.index+1} / 10",color=Yellow,fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text("QUESTION ${state.index+1} / ${engine.questionCount}",color=Yellow,fontSize=20.sp,fontWeight=FontWeight.Bold)
                     Spacer(Modifier.width(30.dp))
-                    Text(if(state.revealed) "ANSWER REVEAL!" else "⏱ $seconds",color=Pink,fontSize=25.sp,fontWeight=FontWeight.Black)
+                    val timerColor by animateColorAsState(
+                        if (state.revealed) Color(0xFF4ADE80) else if (seconds <= 5) Color.Red else Pink,
+                        animationSpec = tween(250), label = "timerColor"
+                    )
+                    val timerScale by animateFloatAsState(
+                        if (!state.revealed && seconds <= 5 && seconds % 2 == 0) 1.15f else 1f,
+                        animationSpec = tween(180), label = "timerScale"
+                    )
+                    Text(if(state.revealed) "✓ ANSWER REVEAL!" else "⏱ $seconds",
+                        modifier=Modifier.graphicsLayer(scaleX=timerScale,scaleY=timerScale),
+                        color=timerColor,fontSize=25.sp,fontWeight=FontWeight.Black)
                 }
                 Spacer(Modifier.height(12.dp))
-                AnimatedContent(targetState=state.index,label="question") { _ ->
+                AnimatedContent(
+                    targetState=state.round to state.index,
+                    transitionSpec = {
+                        (fadeIn(tween(450)) + slideInVertically(tween(450)) { it / 3 })
+                            .togetherWith(fadeOut(tween(200)))
+                    },
+                    label="question"
+                ) { _ ->
                     Box(Modifier.fillMaxWidth().background(Color(0xFF31286F),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
                         Text(engine.current.prompt,color=Color.White,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
                     }
@@ -139,8 +162,12 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                         items.forEachIndexed { col, answer ->
                             val i=row*2+col
                             val correct=state.revealed && engine.current.correct==i
-                            val bg=if(correct) Color(0xFF4ADE80) else choices[i]
-                            Box(Modifier.weight(1f).height(76.dp).background(bg,RoundedCornerShape(20.dp)).border(if(correct) 4.dp else 0.dp,Color.White,RoundedCornerShape(20.dp)).padding(12.dp),contentAlignment=Alignment.Center) {
+                            val bg by animateColorAsState(
+                                if(correct) Color(0xFF4ADE80) else if(state.revealed) choices[i].copy(alpha=0.42f) else choices[i],
+                                animationSpec=tween(420),label="optionColor"
+                            )
+                            val optionScale by animateFloatAsState(if(correct) 1.045f else 1f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="correctScale")
+                            Box(Modifier.weight(1f).height(76.dp).graphicsLayer(scaleX=optionScale,scaleY=optionScale).background(bg,RoundedCornerShape(20.dp)).border(if(correct) 4.dp else 0.dp,Color.White,RoundedCornerShape(20.dp)).padding(12.dp),contentAlignment=Alignment.Center) {
                                 Text("${'A'+i}. $answer",color=Color(0xFF19143D),fontSize=20.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
                             }
                         }
@@ -160,8 +187,10 @@ private fun HealthColumn(name:String,hp:Int,color:Color,modifier:Modifier=Modifi
         Text(name,color=color,fontSize=19.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center,maxLines=2)
         Spacer(Modifier.height(16.dp))
         repeat(5) { i ->
-            val fill by animateColorAsState(if(i<5-hp) Color(0xFF443B61) else color,animationSpec=tween(650),label="health")
-            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).background(fill,RoundedCornerShape(12.dp)))
+            val active = i >= 5-hp
+            val fill by animateColorAsState(if(active) color else Color(0xFF443B61),animationSpec=tween(650),label="health")
+            val healthScale by animateFloatAsState(if(active) 1f else 0.87f,animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy),label="healthScale")
+            Box(Modifier.fillMaxWidth().height(58.dp).padding(vertical=4.dp).graphicsLayer(scaleX=healthScale,scaleY=healthScale,alpha=if(active) 1f else 0.5f).background(fill,RoundedCornerShape(12.dp)))
         }
     }
 }
