@@ -13,26 +13,30 @@ data class GameState(
     val round: Int = 0
 )
 class GameEngine {
-    val questions = listOf(
-        Question("Which province is home to the Blyde River Canyon?", listOf("Limpopo","Mpumalanga","Free State","North West"),1,"Geography"),
-        Question("Which city is known as the Mother City?",listOf("Durban","Cape Town","Pretoria","Gqeberha"),1,"Cities"),
-        Question("Where is the Cradle of Humankind located?",listOf("Gauteng","Northern Cape","KwaZulu-Natal","Limpopo"),0,"Heritage"),
-        Question("Which South African artist released the song Jerusalema?",listOf("Black Coffee","Master KG","Kabza De Small","DJ Maphorisa"),1,"Music"),
-        Question("Which island held Nelson Mandela as a prisoner for many years?",listOf("Marion Island","Robben Island","Dassen Island","Seal Island"),1,"History"),
-        Question("Which province is home to Kimberley?",listOf("Northern Cape","Eastern Cape","Free State","North West"),0,"Provinces"),
-        Question("Who directed the film Titanic?",listOf("Christopher Nolan","James Cameron","Steven Spielberg","Peter Jackson"),1,"Movies"),
-        Question("Which city hosts the Union Buildings?",listOf("Johannesburg","Pretoria","Bloemfontein","Polokwane"),1,"Landmarks"),
-        Question("Which South African group performed the hit Homeless with Paul Simon?",listOf("Mafikizolo","Ladysmith Black Mambazo","Freshlyground","The Soil"),1,"Arts"),
-        Question("Which South African city is famous for its Golden Mile beachfront?",listOf("Durban","East London","Cape Town","Mossel Bay"),0,"Cities"),
-        Question("Which province contains the town of Stellenbosch?",listOf("Western Cape","Eastern Cape","Gauteng","Mpumalanga"),0,"Provinces"),
-        Question("Which actor played T'Challa in Black Panther?",listOf("Michael B. Jordan","Chadwick Boseman","John Boyega","Idris Elba"),1,"Movies"),
-        Question("Which South African city is home to the Apartheid Museum?",listOf("Pretoria","Johannesburg","Durban","Kimberley"),1,"History"),
-        Question("What is the highest mountain range in South Africa?",listOf("Magaliesberg","Drakensberg","Waterberg","Cederberg"),1,"Geography"),
-        Question("Who sang the song Rolling in the Deep?",listOf("Beyoncé","Adele","Rihanna","Sia"),1,"Music")
-    )
-    private var selected = questions.shuffled().take(10)
+    val questions = QuestionBank.all
+    private val recentlyUsed = mutableSetOf<String>()
+    private fun selectQuestions(): List<Question> {
+        if (questions.size - recentlyUsed.size < 10) recentlyUsed.clear()
+        val available = questions.filterNot { it.prompt in recentlyUsed }
+        val groups = available.groupBy { it.category }.values.map { it.shuffled().toMutableList() }.shuffled()
+        val picked = mutableListOf<Question>()
+        while (picked.size < 10 && groups.any { it.isNotEmpty() }) {
+            for (group in groups) {
+                if (picked.size >= 10) break
+                if (group.isNotEmpty()) picked += group.removeAt(0)
+            }
+        }
+        recentlyUsed.addAll(picked.map { it.prompt })
+        return picked.shuffled().map { q ->
+            val correctAnswer = q.options[q.correct]
+            val shuffled = q.options.shuffled()
+            q.copy(options = shuffled, correct = shuffled.indexOf(correctAnswer))
+        }
+    }
+    private var selected = selectQuestions()
     private val mutable = MutableStateFlow(GameState())
     val state = mutable.asStateFlow()
+    val questionCount: Int get() = selected.size
     val current: Question get() = selected[mutable.value.index.coerceIn(0, selected.lastIndex)]
     @Synchronized fun join(player: Int, name: String) {
         if (player !in 0..1) return
@@ -44,7 +48,7 @@ class GameEngine {
     }
     @Synchronized fun newGame() {
         val previous = mutable.value
-        selected = questions.shuffled().take(10)
+        selected = selectQuestions()
         mutable.value = GameState(
             players = previous.players,
             names = previous.names,
@@ -52,7 +56,7 @@ class GameEngine {
         )
     }
     @Synchronized fun newPlayers() {
-        selected = questions.shuffled().take(10)
+        selected = selectQuestions()
         mutable.value = GameState(round = mutable.value.round + 1)
     }
     @Synchronized fun start() {
@@ -77,7 +81,7 @@ class GameEngine {
     @Synchronized fun next() {
         val s = mutable.value
         if (!s.revealed) return
-        val done = s.index >= 9
+        val done = s.index >= selected.lastIndex
         mutable.value = s.copy(index = if (done) s.index else s.index+1, answers = emptyMap(), revealed = false, finished = done)
     }
 }
