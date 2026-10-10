@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 class LocalHost(private val engine: GameEngine) {
-    private val room = (100000..999999).random().toString()
+    private var room = (100000..999999).random().toString()
     private val sessions = ConcurrentHashMap<WebSocket,Int>()
     private val identities = ConcurrentHashMap<String,Int>()
     private val lastSeen = ConcurrentHashMap<Int,WebSocket>()
@@ -39,8 +39,18 @@ class LocalHost(private val engine: GameEngine) {
     private fun freePort(): Int = ServerSocket(0).use { it.localPort }
     private val httpPort = freePort()
     private val wsPort = generateSequence { freePort() }.first { it != httpPort }
-    val url = if(address.isBlank()) "" else "http://$address:$httpPort/?room=$room"
+    val url: String get() = if(address.isBlank()) "" else "http://$address:$httpPort/?room=$room"
     private val wsStarted = CountDownLatch(1)
+    fun newPlayers() {
+        engine.newPlayers()
+        identities.clear()
+        sessions.clear()
+        lastSeen.clear()
+        room = (100000..999999).random().toString()
+        ws.connections.toList().forEach { connection ->
+            try { connection.send(JSONObject().put("type", "reset").toString()) } catch (_: Exception) {}
+        }
+    }
     private val http = object:NanoHTTPD(httpPort) {
         override fun serve(session:IHTTPSession):Response {
             if (session.uri == "/health") {
@@ -81,6 +91,21 @@ class LocalHost(private val engine: GameEngine) {
                         conn.send(JSONObject().put("type","joined").put("player",player+1).toString())
                         broadcast()
                     }
+                    "start" -> {
+                        if (sessions.containsKey(conn)) {
+                            engine.start()
+                            broadcast()
+                        }
+                    }
+                    "new_game" -> {
+                        if (sessions.containsKey(conn) && engine.state.value.finished) {
+                            engine.newGame()
+                            broadcast()
+                        }
+                    }
+                    "new_players" -> {
+                        if (sessions.containsKey(conn) && engine.state.value.finished) newPlayers()
+                    }
                     "answer" -> {
                         val player=sessions[conn] ?: return
                         engine.answer(player,obj.optInt("option",-1))
@@ -117,6 +142,8 @@ class LocalHost(private val engine: GameEngine) {
         return JSONObject().put("type","state").put("index",s.index).put("started",s.started)
             .put("finished",s.finished).put("revealed",s.revealed)
             .put("names",org.json.JSONArray(s.names))
+            .put("players",org.json.JSONArray(s.players))
+            .put("round",s.round
             .put("health",org.json.JSONArray(s.health)).put("answered",org.json.JSONArray((0..1).map { s.answers.containsKey(it) }))
             .put("correct",if(s.revealed) engine.current.correct else JSONObject.NULL).toString()
     }
