@@ -70,7 +70,7 @@ private fun ArcadeLabel(
     outline: Color = Color(0xFF491A3F)
 ) {
     val face = TextStyle(
-        fontFamily = FontFamily.SansSerifCondensed,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Black,
         fontSize = size,
         textAlign = align,
