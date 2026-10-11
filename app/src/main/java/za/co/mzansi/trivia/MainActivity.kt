@@ -222,17 +222,22 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
 }
 @Composable
 private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier = Modifier) {
-    val percentage = (hp.coerceIn(0, 5) * 20)
-    val animatedFill by animateFloatAsState(
-        targetValue = percentage / 100f,
+    // Each lost health point reduces the vertical liquid fill by 20%.
+    // The percentage is deliberately not displayed, matching the reference.
+    val fillFraction by animateFloatAsState(
+        targetValue = hp.coerceIn(0, 5) / 5f,
         animationSpec = tween(durationMillis = 850, easing = FastOutSlowInEasing),
         label = "healthLevel"
     )
     val isBlue = color == Blue
     val liquid = if (isBlue) {
-        Brush.verticalGradient(listOf(Color(0xFF2579F6), Color(0xFF12D8E9)))
+        Brush.verticalGradient(
+            listOf(Color(0xFF246FF1), Color(0xFF17BDF2), Color(0xFF15D6EB))
+        )
     } else {
-        Brush.verticalGradient(listOf(Color(0xFF8327F5), Color(0xFFFA38C2)))
+        Brush.verticalGradient(
+            listOf(Color(0xFF8025EE), Color(0xFFB92BF0), Color(0xFFEF36C7))
+        )
     }
     val capsule = RoundedCornerShape(40.dp)
 
@@ -241,27 +246,27 @@ private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        BoxWithConstraints(
+        Box(
             Modifier.fillMaxWidth(0.74f)
                 .height(330.dp)
-                .shadow(10.dp, capsule)
+                .shadow(9.dp, capsule)
                 .clip(capsule)
-                .background(Color(0xFF342A66))
-                .border(2.dp, Color.White.copy(alpha = 0.15f), capsule)
+                .background(Color(0xFF302C60))
+                .border(1.dp, Color(0xFF70639D).copy(alpha = 0.35f), capsule)
         ) {
             Box(
                 Modifier.align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .fillMaxHeight(animatedFill)
+                    .fillMaxHeight(fillFraction)
                     .background(liquid)
             )
             Box(
                 Modifier.align(Alignment.TopStart)
-                    .fillMaxWidth(0.23f)
+                    .fillMaxWidth(0.20f)
                     .fillMaxHeight()
                     .background(
                         Brush.horizontalGradient(
-                            listOf(Color.White.copy(alpha = 0.13f), Color.Transparent)
+                            listOf(Color.White.copy(alpha = 0.10f), Color.Transparent)
                         )
                     )
             )
@@ -269,10 +274,10 @@ private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier
         Spacer(Modifier.height(12.dp))
         Text(
             name,
-            color = Color(0xFFFFE7B5),
-            fontFamily = headingFont,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Black,
+            color = Color(0xFFF5EAFB),
+            fontFamily = FontFamily.SansSerif,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             maxLines = 2
         )
