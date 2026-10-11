@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +53,43 @@ private val arcadeBackground = Brush.linearGradient(listOf(Color(0xFF4B145F),Col
 private val headingFont = FontFamily.SansSerif
 private val surfaceText = Color(0xFFFFF2D7)
 private fun candyGradient(start: Color, end: Color): Brush = Brush.verticalGradient(listOf(start.copy(alpha=0.98f),start,end))
+
+/**
+ * Gameria-inspired display treatment using Android's bundled heavy condensed font.
+ * It is an approximation, not the proprietary font from the reference image.
+ * Questions and answer options deliberately keep their existing readable typography.
+ */
+@Composable
+private fun ArcadeLabel(
+    value: String,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.TextUnit = 22.sp,
+    align: TextAlign = TextAlign.Center,
+    top: Color = Color(0xFFFFB5DB),
+    bottom: Color = Color(0xFFEF65A7),
+    outline: Color = Color(0xFF491A3F)
+) {
+    val face = TextStyle(
+        fontFamily = FontFamily.SansSerifCondensed,
+        fontWeight = FontWeight.Black,
+        fontSize = size,
+        textAlign = align,
+        lineHeight = size * 1.12f
+    )
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Text(
+            text = value,
+            style = face.copy(color = outline, drawStyle = Stroke(width = 5f)),
+            textAlign = align
+        )
+        Text(
+            text = value,
+            style = face.copy(brush = Brush.verticalGradient(listOf(top, bottom)), drawStyle = Fill),
+            textAlign = align
+        )
+    }
+}
+
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val engine = GameEngine()
@@ -115,20 +154,20 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
         HealthColumn(state.names[0],state.health[0],Blue,Modifier.weight(0.12f))
         Column(Modifier.weight(0.76f).fillMaxHeight(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
             if (!state.started) {
-                Text("READY TO PLAY?",fontSize=36.sp,fontWeight=FontWeight.Black,fontFamily=headingFont,color=Yellow)
+                ArcadeLabel("READY TO PLAY?", size=36.sp)
                 Spacer(Modifier.height(12.dp))
-                Text("Scan the QR code on both phones",color=surfaceText,fontSize=22.sp,fontFamily=headingFont)
+                ArcadeLabel("Scan the QR code on both phones", size=22.sp)
                 Spacer(Modifier.height(14.dp))
                 if (url.isNotBlank()) {
                     val bitmap = remember(url) { qrBitmap(url) }
                     Image(bitmap.asImageBitmap(),null,Modifier.size(170.dp))
                     Text(url,color=surfaceText,fontSize=15.sp)
-                    Text("ROOM CODE: "+url.substringAfter("room="),color=Yellow,fontSize=22.sp,fontWeight=FontWeight.Black)
+                    ArcadeLabel("ROOM CODE: "+url.substringAfter("room="), size=22.sp)
                 } else Text("Connect your TV to Wi-Fi",color=Pink)
                 Spacer(Modifier.height(10.dp))
-                Text("${state.names[0]}: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    ${state.names[1]}: ${if(state.players[1]) "CONNECTED" else "WAITING"}",color=Yellow,fontSize=16.sp)
+                ArcadeLabel("${state.names[0]}: ${if(state.players[0]) "CONNECTED" else "WAITING"}    •    ${state.names[1]}: ${if(state.players[1]) "CONNECTED" else "WAITING"}", size=16.sp)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick={engine.start()},enabled=state.players.all{it},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("✦ START GAME ✦",fontSize=20.sp,fontWeight=FontWeight.Black) }
+                Button(onClick={engine.start()},enabled=state.players.all{it},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { ArcadeLabel("START GAME", size=20.sp) }
             } else if(state.finished) {
                 val winnerIndex = when {
                     state.health[0] > state.health[1] -> 0
@@ -139,23 +178,23 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 }
                 val winner = if (winnerIndex < 0) "IT'S A DRAW!" else "${state.names[winnerIndex]} WINS!"
                 val celebration by infinite.animateFloat(0.96f,1.05f,infiniteRepeatable(tween(700),RepeatMode.Reverse),label="celebration")
-                Text("🎉 $winner 🎉",modifier=Modifier.graphicsLayer(scaleX=celebration,scaleY=celebration),fontFamily=headingFont,color=Yellow,fontSize=36.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                ArcadeLabel("★ $winner ★", modifier=Modifier.graphicsLayer(scaleX=celebration,scaleY=celebration), size=36.sp)
                 Spacer(Modifier.height(14.dp))
-                Text("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}",color=surfaceText,fontSize=20.sp,textAlign=TextAlign.Center)
+                ArcadeLabel("Correct answers: ${state.names[0]} ${state.correctCounts[0]} — ${state.names[1]} ${state.correctCounts[1]}", size=20.sp)
                 if (winnerIndex >= 0) {
                     val loserIndex = 1 - winnerIndex
                     val shots = 5 - state.health[loserIndex]
                     Spacer(Modifier.height(20.dp))
-                    Text("${state.names[loserIndex]} takes $shots ${if(shots == 1) "shot" else "shots"}! 🥃",color=Pink,fontSize=27.sp,fontWeight=FontWeight.Black,textAlign=TextAlign.Center)
+                    ArcadeLabel("${state.names[loserIndex]} takes $shots ${if(shots == 1) "shot" else "shots"}!", size=27.sp)
                 }
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-                    Button(onClick={engine.newGame()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Blue)) { Text("↻ NEW GAME",color=Navy,fontWeight=FontWeight.Black) }
-                    Button(onClick={host.newPlayers()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { Text("✦ NEW PLAYERS",color=Navy,fontWeight=FontWeight.Black) }
+                    Button(onClick={engine.newGame()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Blue)) { ArcadeLabel("NEW GAME", size=19.sp) }
+                    Button(onClick={host.newPlayers()},modifier=Modifier.shadow(12.dp,RoundedCornerShape(24.dp)),shape=RoundedCornerShape(24.dp),colors=ButtonDefaults.buttonColors(containerColor=Pink)) { ArcadeLabel("NEW PLAYERS", size=19.sp) }
                 }
             } else {
                 Row(verticalAlignment=Alignment.CenterVertically) {
-                    Text("QUESTION ${state.index+1} / ${engine.questionCount}",color=Yellow,fontFamily=headingFont,fontSize=20.sp,fontWeight=FontWeight.Black)
+                    ArcadeLabel("QUESTION ${state.index+1} / ${engine.questionCount}", size=20.sp)
                     Spacer(Modifier.width(30.dp))
                     val timerColor by animateColorAsState(
                         if (state.revealed) Color(0xFF4ADE80) else if (seconds <= 5) Color.Red else Pink,
@@ -165,9 +204,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                         if (!state.revealed && seconds <= 5 && seconds % 2 == 0) 1.15f else 1f,
                         animationSpec = tween(180), label = "timerScale"
                     )
-                    Text(if(state.revealed) "✓ ANSWER REVEAL!" else "⏱ $seconds",
-                        modifier=Modifier.graphicsLayer(scaleX=timerScale,scaleY=timerScale),
-                        color=timerColor,fontSize=25.sp,fontWeight=FontWeight.Black)
+                    ArcadeLabel(if(state.revealed) "ANSWER REVEAL!" else "⏱ $seconds", modifier=Modifier.graphicsLayer(scaleX=timerScale,scaleY=timerScale), size=25.sp, top=timerColor, bottom=timerColor.copy(alpha=0.75f))
                 }
                 Spacer(Modifier.height(12.dp))
                 AnimatedContent(
@@ -180,7 +217,7 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                 ) { _ ->
                     Box(Modifier.fillMaxWidth().shadow(15.dp,RoundedCornerShape(24.dp)).background(candyGradient(Color(0xFFFFFEF0),Color(0xFFF5DEAF)),RoundedCornerShape(24.dp)).border(4.dp,Color.White.copy(alpha=0.92f),RoundedCornerShape(24.dp)).padding(20.dp),contentAlignment=Alignment.Center) {
                         Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                            Text(engine.current.category.uppercase(),color=Color(0xFFA7653E),fontSize=14.sp,fontWeight=FontWeight.Bold)
+                            ArcadeLabel(engine.current.category.uppercase(), size=14.sp, top=Color(0xFFD7955B), bottom=Color(0xFFB86D46))
                             Spacer(Modifier.height(8.dp))
                             Text(engine.current.prompt,color=Color(0xFF663A24),fontFamily=headingFont,fontWeight=FontWeight.ExtraBold,fontSize=27.sp,lineHeight=34.sp,textAlign=TextAlign.Center)
                         }
@@ -210,10 +247,10 @@ private fun GameScreen(engine: GameEngine, host: LocalHost, speak: (String)->Uni
                         val result = if (answer == null) "TIME UP" else if (answer == engine.current.correct) "CORRECT ✓" else "WRONG ✕"
                         "${state.names[player]}: $result"
                     }
-                    Text("✨ ${engine.current.options[engine.current.correct]} ✨",fontFamily=headingFont,color=Yellow,fontSize=(23*pulse).sp,fontWeight=FontWeight.Black)
-                    Text(results,color=surfaceText,fontSize=17.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center)
+                    ArcadeLabel("★ ${engine.current.options[engine.current.correct]} ★", size=(23*pulse).sp)
+                    ArcadeLabel(results, size=17.sp)
                 }
-                else Text("Answer on your phone!",color=surfaceText,fontSize=18.sp)
+                else ArcadeLabel("Answer on your phone!", size=18.sp)
             }
         }
         HealthColumn(state.names[1],state.health[1],Pink,Modifier.weight(0.12f))
@@ -272,15 +309,7 @@ private fun HealthColumn(name: String, hp: Int, color: Color, modifier: Modifier
             )
         }
         Spacer(Modifier.height(12.dp))
-        Text(
-            name,
-            color = Color(0xFFF5EAFB),
-            fontFamily = FontFamily.SansSerif,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-        )
+        ArcadeLabel(name, size=16.sp)
     }
 }
 private fun qrBitmap(value:String):Bitmap {
